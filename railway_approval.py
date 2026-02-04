@@ -295,7 +295,7 @@ class RailwayApprovalBot:
         js_code = """
         var alertBox = document.createElement('div');
         alertBox.id = 'verification-alert';
-        alertBox.style.cssText = 'position: fixed; top: 10px; left: 10px; z-index: 9999; background: #ff4444; color: white; padding: 40px; border-radius: 15px; font-size: 70px; font-weight: bold; box-shadow: 0 8px 24px rgba(0,0,0,0.3); max-width: 1200px; font-family: Arial, sans-serif; line-height: 1.6;';
+        alertBox.style.cssText = 'position: fixed; top: 10px; left: 10px; z-index: 9999; background: #ff4444; color: white; padding: 40px; border-radius: 15px; font-size: 30px; font-weight: bold; box-shadow: 0 8px 24px rgba(0,0,0,0.3); max-width: 500px; font-family: Arial, sans-serif; line-height: 1.6;';
         alertBox.innerHTML = '⚠️ 重要提示<br><br>1. 手动输入验证码<br>2. 输入完成后回到黑框按回车<br>3. 不要点击登录按钮！';
         document.body.appendChild(alertBox);
         """
