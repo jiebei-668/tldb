@@ -2,55 +2,55 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: 检出代码
+    - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: 设置 Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 安装依赖
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: 打包成 EXE
+    - name: Build EXE
       run: |
-        pyinstaller --onefile --name "铁路审批自动化" --clean railway_approval.py
+        pyinstaller --onefile --name "RailwayAutomation" --clean railway_approval.py
 
-    - name: 准备发布文件
+    - name: Prepare release files
       run: |
         mkdir release
-        copy dist\铁路审批自动化.exe release\
-        copy config.ini release\
-        copy README.md release\
+        Copy-Item dist\RailwayAutomation.exe release\
+        Copy-Item config.ini release\
+        Copy-Item README.md release\
 
-    - name: 创建 ZIP 压缩包
+    - name: Create ZIP archive
       run: |
-        Compress-Archive -Path release\* -DestinationPath 铁路审批自动化-Windows.zip
+        Compress-Archive -Path release\* -DestinationPath RailwayAutomation-Windows.zip
 
-    - name: 上传构建产物
+    - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: 铁路审批自动化-Windows
-        path: 铁路审批自动化-Windows.zip
+        name: RailwayAutomation-Windows
+        path: RailwayAutomation-Windows.zip
 
-    - name: 创建 Release (仅推送标签时)
+    - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: 铁路审批自动化-Windows.zip
+        files: RailwayAutomation-Windows.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
