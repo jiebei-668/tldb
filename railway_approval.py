@@ -59,9 +59,6 @@ class RailwayApprovalBot:
         """打开网站"""
         self.log("正在打开网站...")
         self.driver.get(self.base_url)
-
-        # 等待页面加载
-        self.log("等待页面加载完成...")
         time.sleep(3)
 
         # 检查是否有 frame 并切换
@@ -71,119 +68,59 @@ class RailwayApprovalBot:
             total_frames = len(iframes) + len(frames)
 
             if total_frames > 0:
-                self.log(f"发现 {total_frames} 个 frame，正在切换...")
-
-                # 切换到第一个可用的 frame
-                switched = False
-
                 # 先尝试普通 frame
-                for i, frame in enumerate(frames):
+                for frame in frames:
                     try:
                         self.driver.switch_to.frame(frame)
-                        self.log(f"成功切换到 frame #{i+1}")
-                        switched = True
-                        break
-                    except Exception as e:
-                        self.log(f"切换到 frame #{i+1} 失败: {e}")
+                        time.sleep(2)
+                        return
+                    except:
                         continue
 
                 # 如果普通 frame 失败，尝试 iframe
-                if not switched:
-                    for i, iframe in enumerate(iframes):
-                        try:
-                            self.driver.switch_to.frame(iframe)
-                            self.log(f"成功切换到 iframe #{i+1}")
-                            switched = True
-                            break
-                        except Exception as e:
-                            self.log(f"切换到 iframe #{i+1} 失败: {e}")
-                            continue
-
-                if not switched:
-                    self.log("警告：无法切换到任何 frame")
-
-                # 切换后等待 frame 内容加载
-                time.sleep(2)
-
-            else:
-                self.log("页面中没有 frame")
-
+                for iframe in iframes:
+                    try:
+                        self.driver.switch_to.frame(iframe)
+                        time.sleep(2)
+                        return
+                    except:
+                        continue
         except Exception as e:
             self.log(f"处理 frame 时出错: {e}")
-
-        self.log(f"当前 URL: {self.driver.current_url}")
 
     def login(self):
         """登录 - Element UI"""
         self.log("开始登录流程...")
-
-        # 等待页面加载
         time.sleep(2)
 
-        # 尝试多种方式定位用户名输入框
-        self.log("正在查找用户名输入框...")
-
+        # 查找用户名输入框
         username_input = None
         username_selectors = [
-            # 方法1: 通过 type 和 class (Element UI)
             (By.XPATH, "//input[@type='text' and contains(@class,'el-input__inner')]"),
-            # 方法2: 第一个文本输入框
             (By.XPATH, "(//input[@type='text'])[1]"),
-            # 方法3: 通过 placeholder（如果有）
             (By.XPATH, "//input[contains(@placeholder,'用户') or contains(@placeholder,'账号') or contains(@placeholder,'username')]"),
-            # 方法4: 通过 name 属性
             (By.NAME, "username"),
             (By.NAME, "user"),
-            # 方法5: 第一个 input
             (By.TAG_NAME, "input"),
         ]
 
         for selector_type, selector_value in username_selectors:
             try:
-                self.log(f"尝试选择器: {selector_type} = {selector_value}")
                 username_input = self.short_wait.until(
                     EC.presence_of_element_located((selector_type, selector_value))
                 )
-                self.log(f"成功找到用户名输入框！")
                 break
             except TimeoutException:
-                self.log(f"该选择器未找到元素，尝试下一个...")
                 continue
 
         if not username_input:
-            # 打印页面源码用于调试
-            self.log("错误：无法找到用户名输入框！")
-            self.log("页面标题: " + self.driver.title)
-            self.log("页面URL: " + self.driver.current_url)
-
-            # 保存页面截图
-            screenshot_path = "/tmp/login_page_debug.png"
-            self.driver.save_screenshot(screenshot_path)
-            self.log(f"已保存页面截图到: {screenshot_path}")
-
-            # 打印页面上所有 input 元素的信息
-            try:
-                inputs = self.driver.find_elements(By.TAG_NAME, "input")
-                self.log(f"页面上共有 {len(inputs)} 个 input 元素:")
-                for i, inp in enumerate(inputs):
-                    inp_type = inp.get_attribute("type") or "未知"
-                    inp_name = inp.get_attribute("name") or "无"
-                    inp_class = inp.get_attribute("class") or "无"
-                    inp_placeholder = inp.get_attribute("placeholder") or "无"
-                    self.log(f"  Input #{i+1}: type={inp_type}, name={inp_name}, class={inp_class}, placeholder={inp_placeholder}")
-            except:
-                pass
-
-            raise Exception("无法找到用户名输入框，请检查页面结构")
+            raise Exception("无法找到用户名输入框")
 
         # 输入用户名
-        self.log("输入用户名...")
         username_input.clear()
         username_input.send_keys(self.username)
-        self.log("用户名已输入")
 
         # 查找密码输入框
-        self.log("正在查找密码输入框...")
         password_input = None
         password_selectors = [
             (By.XPATH, "//input[@type='password' and contains(@class,'el-input__inner')]"),
@@ -197,7 +134,6 @@ class RailwayApprovalBot:
                 password_input = self.short_wait.until(
                     EC.presence_of_element_located((selector_type, selector_value))
                 )
-                self.log(f"成功找到密码输入框！")
                 break
             except TimeoutException:
                 continue
@@ -205,90 +141,41 @@ class RailwayApprovalBot:
         if not password_input:
             raise Exception("无法找到密码输入框")
 
-        self.log("输入密码...")
         password_input.clear()
         password_input.send_keys(self.password)
-        self.log("密码已输入")
 
         # 等待用户手动输入验证码
         self.log("=" * 50)
         self.log("请手动输入验证码，输入完成后按回车键继续...")
-
-        # 显示浏览器提示框
         self.show_verification_alert()
-
-        # 等待用户按回车
         input("按回车键继续...")
-
-        # 移除浏览器提示框
         self.hide_verification_alert()
 
-        # 点击登录按钮 - 尝试多种方式
-        self.log("正在查找登录按钮...")
-
+        # 点击登录按钮
         login_button = None
         login_selectors = [
-            # 注意：实际文本是"登 录"（中间有空格）
             (By.XPATH, "//button[contains(text(),'登 录')]"),
             (By.XPATH, "//button[normalize-space(text())='登录']"),
             (By.XPATH, "//button[contains(@class,'btn-block')]"),
             (By.CLASS_NAME, "btn-block"),
-            # 通过文本包含
             (By.XPATH, "//button[contains(text(),'登')]"),
         ]
 
         for selector_type, selector_value in login_selectors:
             try:
-                self.log(f"尝试选择器: {selector_type} = {selector_value}")
                 login_button = self.short_wait.until(
                     EC.element_to_be_clickable((selector_type, selector_value))
                 )
-                self.log(f"成功找到登录按钮！")
                 break
             except TimeoutException:
-                self.log(f"该选择器未找到元素，尝试下一个...")
                 continue
 
         if not login_button:
-            # 调试：打印页面上所有按钮
-            try:
-                buttons = self.driver.find_elements(By.TAG_NAME, "button")
-                self.log(f"页面上共有 {len(buttons)} 个按钮:")
-                for i, btn in enumerate(buttons):
-                    btn_text = btn.text.strip()
-                    btn_class = btn.get_attribute("class") or "无"
-                    btn_type = btn.get_attribute("type") or "无"
-                    self.log(f"  Button #{i+1}: text='{btn_text}', class={btn_class}, type={btn_type}")
-            except:
-                pass
-
             raise Exception("无法找到登录按钮")
 
-        self.log("点击登录按钮...")
         login_button.click()
         self.log("登录请求已发送...")
-
-        # 等待登录成功 - 等待主页加载
-        self.log("等待登录成功...")
         time.sleep(5)
-
-        # 登录后，frame 内容会更新为主页
-        self.log("检查登录后的状态...")
-        self.log(f"当前 URL: {self.driver.current_url}")
-
-        # 保存登录后的页面信息
-        try:
-            links = self.driver.find_elements(By.TAG_NAME, "a")
-            self.log(f"当前页面有 {len(links)} 个链接")
-
-            # 如果链接很少，说明可能还在登录页或者需要等待
-            if len(links) < 5:
-                self.log("页面链接较少，等待更长时间...")
-                time.sleep(3)
-                links = self.driver.find_elements(By.TAG_NAME, "a")
-                self.log(f"等待后页面有 {len(links)} 个链接")
-        except Exception as e:
-            self.log(f"检查链接时出错: {e}")
 
     def show_verification_alert(self):
         """在页面显示验证码输入提示"""
@@ -375,97 +262,42 @@ class RailwayApprovalBot:
     def navigate_to_approval(self):
         """导航到审批页面"""
         self.log("开始导航到审批页面...")
-
-        # 等待轮播图页面加载
-        self.log("等待主页完全加载...")
         time.sleep(3)
 
-        self.log("当前 URL: " + self.driver.current_url)
-
-        # 登录后是轮播图页面，需要点击"全省铁路隐患库"卡片
-        self.log("正在点击'全省铁路隐患库'卡片...")
-
-        # 查找包含"全省铁路隐患库"文本的元素
-        # 这是一个 div.swiper-slide 元素，点击后会跳转
+        # 点击"全省铁路隐患库"卡片
         try:
-            # 方法1: 直接查找包含文本的元素
             card = self.wait.until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(),'全省铁路隐患库')]"))
             )
-            self.log("找到'全省铁路隐患库'卡片")
             card.click()
-            self.log("已点击卡片")
         except:
-            # 方法2: 通过 onclick 属性查找
             try:
                 card = self.driver.find_element(By.XPATH, "//*[@onclick and contains(.,'全省铁路隐患库')]")
                 card.click()
-                self.log("已点击卡片（通过onclick）")
             except Exception as e:
                 self.log(f"点击卡片失败: {e}")
-                # 方法3: 直接访问 URL
-                self.log("尝试直接访问URL...")
                 self.driver.get("http://sxstlhllfzhpt.cn/hlbzxsys/mp/main.shtml?menui=3")
 
-        # 等待跳转后的页面加载
-        self.log("等待系统主页面加载...")
         time.sleep(5)
 
-        self.log("当前 URL: " + self.driver.current_url)
-
-        # 现在应该进入了系统主页面，需要查找"日报告管理"和"日报审批"
-        # 保存页面源码用于调试
-        with open("/tmp/main_page.html", "w", encoding="utf-8") as f:
-            f.write(self.driver.page_source)
-        self.log("已保存主页面源码到: /tmp/main_page.html")
-
-        # 查找所有链接和菜单项
-        try:
-            all_links = self.driver.find_elements(By.TAG_NAME, "a")
-            self.log(f"主页面有 {len(all_links)} 个链接")
-
-            # 显示所有包含文本的链接
-            count = 0
-            for i, link in enumerate(all_links):
-                text = link.text.strip()
-                if text and count < 30:  # 显示前30个
-                    self.log(f"  链接#{i+1}: {text}")
-                    count += 1
-        except Exception as e:
-            self.log(f"查找链接时出错: {e}")
-
-        # 尝试点击"日报告管理"
-        self.log("正在查找'日报告管理'...")
-        success = self.click_menu("日报告管理")
+        # 点击菜单
+        self.click_menu("日报告管理")
         time.sleep(2)
-
-        # 尝试点击"日报审批"
-        self.log("正在查找'日报审批'...")
-        success = self.click_menu("日报审批")
+        self.click_menu("日报审批")
 
         self.log("等待审批页面加载...")
-        self.log("重要：表格渲染需要约40秒，请耐心等待...")
-        time.sleep(40)  # 等待表格渲染
-        self.log("等待完成，开始处理...")
+        time.sleep(40)
 
     def process_approval_page(self):
-        """
-        处理当前页面的所有待审批项目
-        :return: 是否处理了项目
-        """
-        self.log("正在处理当前页面的待审批项目...")
-
+        """处理当前页面的所有待审批项目"""
         try:
             processed_count = 0
 
             while True:
-                # 每次循环都重新获取表格，避免元素过期
                 table = self.wait.until(
                     EC.presence_of_element_located((By.ID, "check_item_list"))
                 )
                 rows = table.find_elements(By.TAG_NAME, "tr")
-
-                # 从头查找第一个"待审批"的项目
                 found_pending = False
 
                 for row_index in range(len(rows)):
@@ -476,129 +308,77 @@ class RailwayApprovalBot:
                         if len(cells) < 8:
                             continue
 
-                        # 获取状态（第8列，索引7）
                         status = cells[7].text.strip()
 
-                        # 找到第一个"待审批"的项目
                         if "待审批" in status:
-                            self.log(f"找到待审批项目（第 {row_index} 行），开始处理...")
-
-                            # 获取操作列（最后一列）
                             operate_cell = cells[-1]
-
-                            # 查找"审批"按钮
                             approve_buttons = operate_cell.find_elements(By.XPATH, ".//i[contains(text(),'审批')]")
                             if not approve_buttons:
                                 approve_buttons = operate_cell.find_elements(By.XPATH, ".//i[contains(@onclick,'spFun')]")
 
                             if not approve_buttons:
-                                self.log(f"未找到审批按钮，跳过")
                                 continue
 
                             approve_button = approve_buttons[0]
-
-                            # 滚动到按钮可见
                             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", approve_button)
                             time.sleep(0.5)
-
-                            # 点击审批按钮
                             approve_button.click()
-                            self.log("审批按钮已点击")
 
-                            # 等待模态框加载并填写审批
                             self.approve_item()
                             processed_count += 1
-
-                            # 等待页面更新
                             time.sleep(2)
-
-                            # 标记找到并跳出当前for循环，重新开始while循环
                             found_pending = True
                             break
 
                     except Exception as e:
-                        self.log(f"处理第 {row_index} 行时出错: {e}")
                         continue
 
-                # 如果没找到待审批项目，退出while循环
                 if not found_pending:
-                    self.log("当前页面没有更多待审批项目")
                     break
 
-            self.log(f"当前页面处理完成，共审批 {processed_count} 个项目")
+            if processed_count > 0:
+                self.log(f"已审批 {processed_count} 个项目")
             return processed_count > 0
 
         except Exception as e:
             self.log(f"处理页面时出错: {e}")
-            import traceback
-            traceback.print_exc()
             return False
 
     def approve_item(self):
         """处理单个审批项 - Bootstrap 模态框"""
-        self.log("正在填写审批意见...")
-
         try:
-            # 直接等待模态框内的 textarea 元素可见（确保内容已加载）
-            self.log("等待审批弹窗打开...")
             textarea = self.wait.until(
                 EC.visibility_of_element_located((By.XPATH, "//div[@id='addModal']//textarea"))
             )
-            self.log("审批弹窗已打开，找到输入框")
-
             textarea.clear()
             textarea.send_keys("情况属实，同意上报")
-            self.log("已填写审批意见")
 
-            # 点击保存按钮 - Bootstrap 按钮
-            self.log("点击保存按钮...")
+            # 查找保存按钮
             save_button = None
             save_selectors = [
-                # 通过 onclick 属性查找（最精确）
                 (By.XPATH, "//button[@onclick='sp()']"),
-                # 在模态框内通过 onclick 属性查找
                 (By.XPATH, "//div[@id='addModal']//button[@onclick='sp()']"),
-                # 使用 normalize-space 处理 HTML 实体和空格
                 (By.XPATH, "//button[normalize-space(text())='保存']"),
-                # 在模态框内使用 normalize-space
                 (By.XPATH, "//div[@id='addModal']//button[normalize-space(text())='保存']"),
             ]
 
             for selector_type, selector_value in save_selectors:
                 try:
-                    # 先查找元素，不要求可点击
                     save_button = self.short_wait.until(
                         EC.presence_of_element_located((selector_type, selector_value))
                     )
-                    self.log(f"找到保存按钮: {selector_type}={selector_value}")
-
-                    # 验证 onclick 属性
                     onclick_value = save_button.get_attribute("onclick")
                     if onclick_value and "sp()" in onclick_value:
-                        self.log("验证通过：onclick 包含 sp()")
                         break
-                    else:
-                        self.log(f"onclick 值是: {onclick_value}，继续查找...")
-                        continue
                 except TimeoutException:
                     continue
 
             if save_button:
-                # 使用 JavaScript 点击来避免遮挡问题
                 self.driver.execute_script("arguments[0].click();", save_button)
-                self.log("保存成功")
-
-                # 等待模态框关闭
                 time.sleep(1)
-            else:
-                self.log("警告：未找到保存按钮")
 
         except Exception as e:
             self.log(f"填写审批时出错: {e}")
-            import traceback
-            traceback.print_exc()
-
-            # 尝试按 ESC 关闭弹窗
             try:
                 from selenium.webdriver.common.keys import Keys
                 webdriver.ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
@@ -607,59 +387,32 @@ class RailwayApprovalBot:
 
     def go_to_next_page(self):
         """翻到下一页 - Bootstrap 分页"""
-        self.log("尝试翻到下一页...")
-
         try:
-            # 等待分页组件加载
             self.short_wait.until(
                 EC.presence_of_element_located((By.CLASS_NAME, "pagination"))
             )
 
-            # 获取当前页码
-            try:
-                active_page = self.driver.find_element(By.XPATH, "//ul[contains(@class,'pagination')]//li[contains(@class,'active')]/a")
-                current_page_text = active_page.text.strip()
-                self.log(f"当前页码: {current_page_text}")
-            except:
-                current_page_text = "1"
-                self.log("无法获取当前页码，假设是第1页")
-
-            # Bootstrap 分页结构：<ul class="pagination"><li><a>»</a></li></ul>
-            # 查找包含 "»" 的链接
             try:
                 next_link = self.driver.find_element(By.XPATH, "//ul[contains(@class,'pagination')]//a[contains(text(),'»')]")
                 parent_li = next_link.find_element(By.XPATH, "..")
-
-                # 检查父级 li 是否有 disabled 类
                 parent_class = parent_li.get_attribute("class") or ""
 
                 if "disabled" in parent_class:
-                    self.log("下一页按钮已禁用，没有更多页了")
                     return False
-                else:
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_link)
-                    time.sleep(0.5)
-                    next_link.click()
-                    self.log("已点击下一页链接")
 
-                    # 等待页面更新 - 固定等待40秒让数据加载
-                    self.log("等待页面数据更新（约40秒）...")
-                    time.sleep(40)  # 等待表格数据加载
-                    self.log("数据加载完成")
-                    return True
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_link)
+                time.sleep(0.5)
+                next_link.click()
+                self.log("等待下一页数据加载...")
+                time.sleep(40)
+                return True
 
             except NoSuchElementException:
-                self.log("未找到下一页链接（»）")
+                pass
 
         except TimeoutException:
-            self.log("等待分页组件超时")
-            return False
-        except Exception as e:
-            self.log(f"翻页时出错: {e}")
-            import traceback
-            traceback.print_exc()
+            pass
 
-        self.log("没有更多页了")
         return False
 
     def run(self):
@@ -669,29 +422,20 @@ class RailwayApprovalBot:
             self.log("铁路隐患审批自动化脚本启动")
             self.log("=" * 50)
 
-            # 打开网站
             self.open_site()
-
-            # 登录
             self.login()
-
-            # 导航到审批页面
             self.navigate_to_approval()
 
-            # 处理所有页面的待审批项目
             page_num = 1
-            total_processed = 0
 
             while True:
                 self.log(f"正在处理第 {page_num} 页...")
-                self.log("-" * 30)
 
                 has_items = self.process_approval_page()
 
                 if not has_items:
                     self.log("当前页面没有待审批项目")
 
-                # 翻到下一页
                 if not self.go_to_next_page():
                     break
 
@@ -701,20 +445,16 @@ class RailwayApprovalBot:
             self.log(f"所有页面处理完成！共处理 {page_num} 页")
             self.log("=" * 50)
 
-            # 保持浏览器打开，方便查看结果
             self.log("按回车键关闭浏览器...")
             input()
 
         except Exception as e:
             self.log(f"运行出错: {e}")
-            import traceback
-            traceback.print_exc()
             self.log("按回车键关闭浏览器...")
             input()
 
         finally:
             self.driver.quit()
-            self.log("浏览器已关闭")
 
     def test_login_only(self):
         """仅测试登录功能"""
