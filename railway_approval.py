@@ -737,7 +737,15 @@ def load_config():
     从配置文件加载账号密码
     :return: (username, password)
     """
-    config_file = os.path.join(os.path.dirname(__file__), 'config.ini')
+    # 获取配置文件路径（兼容 PyInstaller 打包后的环境）
+    if getattr(sys, 'frozen', False):
+        # 打包后的环境：配置文件在 exe 同级目录
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # 开发环境：配置文件在脚本同级目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    config_file = os.path.join(base_path, 'config.ini')
 
     # 如果配置文件存在，读取配置
     if os.path.exists(config_file):
